@@ -278,7 +278,7 @@ def create_scatter_plot(df):
 
     
     ##---------------7.TREEMAP--------------------------
-    def create_treemap(df):
+def create_treemap(df):
     vuln_attack_industry = df.groupby(['Security Vulnerability Type', 'Attack Type', 'Target Industry']).agg({
         'Number of Affected Users': 'sum',
         'Financial Loss (in Million $)': 'sum'
