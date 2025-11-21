@@ -140,3 +140,8 @@ else:
     """)
     fig_scatter = graphs.create_scatter_plot(df_filtered)
     st.plotly_chart(fig_scatter, use_container_width=True)
+    # --- 7. TREEMAP ---
+    st.divider()
+    st.subheader("Vulnerability-Attack-Industry Breakdown")
+    fig_treemap = graphs.create_treemap(df_filtered)
+    st.plotly_chart(fig_treemap, use_container_width=True)
