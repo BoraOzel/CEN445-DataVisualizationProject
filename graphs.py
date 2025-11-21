@@ -275,3 +275,45 @@ def create_scatter_plot(df):
     fig.update_layout(showlegend=True)
     
     return fig
+
+    
+    ##---------------7.TREEMAP--------------------------
+    def create_treemap(df):
+    vuln_attack_industry = df.groupby(['Security Vulnerability Type', 'Attack Type', 'Target Industry']).agg({
+        'Number of Affected Users': 'sum',
+        'Financial Loss (in Million $)': 'sum'
+    }).reset_index()
+    
+    fig = px.treemap(
+        vuln_attack_industry,
+        path=['Security Vulnerability Type', 'Attack Type', 'Target Industry'],
+        values='Number of Affected Users',
+        color='Number of Affected Users',
+        hover_data=['Financial Loss (in Million $)'],
+        color_continuous_scale='YlOrBr',
+        title='<b>Security Vulnerability > Attack Type > Target Industry</b>',
+        labels={
+            'Number of Affected Users': 'Affected Users',
+            'Security Vulnerability Type': 'Vulnerability Type',
+            'Attack Type': 'Attack Type',
+            'Target Industry': 'Target Industry',
+            'Financial Loss (in Million $)': 'Financial Loss (Million $)'
+        }
+    )
+    
+    fig.update_traces(
+        textinfo='label+value',
+        texttemplate='<b>%{label}</b><br>%{value:,.0f} users',
+        textposition='middle center',
+        textfont_size=11
+    )
+    
+    fig.update_layout(
+        width=1400,
+        height=800,
+        font=dict(size=14),
+        title_font_size=20,
+        margin=dict(t=80, l=0, r=0, b=0)
+    )
+    
+    return fig
