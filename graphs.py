@@ -4,25 +4,26 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import numpy as np
 
+
 # --- 1. CHOROPLETH MAP ---
-def create_choropleth_map(df, selected_metric_column, selected_metric_label):  
+def create_choropleth_map(df, selected_metric_column, selected_metric_label):
     country_stats = df.groupby('Country').agg({
         selected_metric_column: 'sum',
         'Attack Type': lambda x: x.mode()[0] if not x.mode().empty else "N/A"
     }).reset_index()
-    
+
     country_stats.rename(columns={'Attack Type': 'Dominant Attack'}, inplace=True)
-    
+
     plot_col = selected_metric_column
     plot_label = selected_metric_label
-    tick_fmt = ",.0f" 
+    tick_fmt = ",.0f"
 
     if "Loss" in selected_metric_column:
         plot_col = "Financial Loss (Billion $)"
         country_stats[plot_col] = country_stats[selected_metric_column] / 1000
         plot_label = "Financial Loss ($B)"
         color_scale = px.colors.sequential.Reds
-        tick_fmt = ",.1f" 
+        tick_fmt = ",.1f"
     else:
         color_scale = px.colors.sequential.Oranges
 
@@ -40,15 +41,16 @@ def create_choropleth_map(df, selected_metric_column, selected_metric_label):
 
     fig.update_layout(
         geo=dict(showframe=False, showcoastlines=True, projection_type='equirectangular'),
-        margin={"r":0,"t":40,"l":0,"b":0},
+        margin={"r": 0, "t": 40, "l": 0, "b": 0},
         coloraxis_colorbar=dict(title=plot_label, tickformat=tick_fmt)
     )
     return fig
 
+
 # --- 2. TIME SERIES LINE CHART ---
 def create_time_series_line_chart(df):
     trend_data = df.groupby('Year').size().reset_index(name='Incident Count')
-    
+
     fig = px.line(
         trend_data,
         x='Year',
@@ -57,7 +59,7 @@ def create_time_series_line_chart(df):
         title='Total Volume of Cyber Attacks (2015-2024)',
         labels={'Year': 'Year', 'Incident Count': 'Total Number of Incidents'}
     )
-    
+
     fig.update_layout(
         xaxis=dict(tickmode='linear', dtick=1),
         yaxis=dict(title='Total Number of Incidents'),
@@ -67,34 +69,35 @@ def create_time_series_line_chart(df):
     fig.update_traces(line_color='red', line_width=3)
     return fig
 
+
 # --- 3. HEATMAP ---
 def create_heatmap(df, metric_column, metric_label):
     heatmap_data = df.groupby(['Attack Type', 'Target Industry'])[metric_column].sum().reset_index()
-    
+
     plot_col = metric_column
     if "Loss" in metric_column:
-        plot_col = "Financial Loss ($B)" 
+        plot_col = "Financial Loss ($B)"
         heatmap_data[plot_col] = heatmap_data[metric_column] / 1000
         fmt = ".2f"
         c_scale = "Reds"
         final_label = "Financial Loss ($B)"
     else:
-        fmt = ",.0f" 
+        fmt = ",.0f"
         c_scale = "Oranges"
         final_label = metric_label
 
     heatmap_pivot = heatmap_data.pivot(index='Attack Type', columns='Target Industry', values=plot_col)
-    
+
     fig = px.imshow(
         heatmap_pivot,
         labels=dict(x="Target Industry", y="Attack Type", color=final_label),
         x=heatmap_pivot.columns,
         y=heatmap_pivot.index,
-        text_auto=fmt, 
+        text_auto=fmt,
         aspect="auto",
         color_continuous_scale=c_scale
     )
-    
+
     fig.update_layout(
         title=f"Heatmap: Attack Type vs. Industry ({final_label})",
         xaxis_title="Target Industry",
@@ -102,6 +105,7 @@ def create_heatmap(df, metric_column, metric_label):
         coloraxis_colorbar=dict(title=final_label, tickformat=",.0f" if "Loss" not in metric_column else ".1f")
     )
     return fig
+
 
 # --- 4. SUNBURST CHART ---
 def create_sunburst_chart(df, metric_column, metric_label):
@@ -113,23 +117,24 @@ def create_sunburst_chart(df, metric_column, metric_label):
         plot_col = "Financial Loss ($B)"
         df_processed[plot_col] = df_processed[metric_column] / 1000
         final_label = "Financial Loss ($B)"
-    
+
     top_countries = df_processed.groupby('Country')[plot_col].sum().nlargest(10).index
     df_filtered_top = df_processed[df_processed['Country'].isin(top_countries)]
 
     fig = px.sunburst(
         df_filtered_top,
-        path=['Country', 'Target Industry', 'Attack Type'], 
+        path=['Country', 'Target Industry', 'Attack Type'],
         values=plot_col,
-        color=plot_col, 
-        color_continuous_scale="RdBu_r", 
+        color=plot_col,
+        color_continuous_scale="RdBu_r",
         title=f"Hierarchical Analysis: {final_label} (Top 10 Countries)",
         height=700
     )
-    
+
     fig.update_traces(textinfo="label+percent entry")
     fig.update_layout(margin=dict(t=40, l=0, r=0, b=0), coloraxis_colorbar=dict(title=final_label))
     return fig
+
 
 # --- 5. RADAR CHART ---
 def create_radar_multichart(df):
@@ -141,7 +146,8 @@ def create_radar_multichart(df):
         'Attack Type': 'count'
     }).rename(columns={'Attack Type': 'Count_Raw'})
 
-    defense_stats['CostPerUser_Raw'] = defense_stats['Financial Loss (in Million $)'] * 1000000 / defense_stats['Number of Affected Users'].replace(0, 1)
+    defense_stats['CostPerUser_Raw'] = defense_stats['Financial Loss (in Million $)'] * 1000000 / defense_stats[
+        'Number of Affected Users'].replace(0, 1)
     raw_data = defense_stats.copy()
 
     # 2. Normalization
@@ -168,12 +174,12 @@ def create_radar_multichart(df):
     # 4. Layout
     num_items = len(sorted_defenses)
     cols = 3
-    rows = (num_items + cols - 1) // cols 
+    rows = (num_items + cols - 1) // cols
     specs = [[{'type': 'polar'} for _ in range(cols)] for _ in range(rows)]
 
     fig = make_subplots(
         rows=rows, cols=cols,
-        specs=specs, 
+        specs=specs,
         subplot_titles=sorted_defenses,
         vertical_spacing=0.18,
         horizontal_spacing=0.15
@@ -186,9 +192,9 @@ def create_radar_multichart(df):
         adjusted_indices = []
         for val in raw_indices:
             if val <= 0.5:
-                adjusted_indices.append(val * 0.8) 
+                adjusted_indices.append(val * 0.8)
             else:
-                adjusted_indices.append(0.6 + (val - 0.5) * 0.8) 
+                adjusted_indices.append(0.6 + (val - 0.5) * 0.8)
         colors = px.colors.sample_colorscale("RdBu", adjusted_indices)
     else:
         colors = px.colors.sample_colorscale("RdBu", [0])
@@ -197,7 +203,7 @@ def create_radar_multichart(df):
     for idx, defense in enumerate(sorted_defenses):
         row = (idx // cols) + 1
         col = (idx % cols) + 1
-        
+
         current_raw_vals = [
             raw_data.loc[defense, 'Financial Loss (in Million $)'],
             raw_data.loc[defense, 'Incident Resolution Time (in Hours)'],
@@ -223,14 +229,16 @@ def create_radar_multichart(df):
         height=dynamic_height,
         showlegend=False,
         margin=dict(t=80, b=50, l=60, r=60),
-        font=dict(color="black") 
+        font=dict(color="black")
     )
     fig.update_polars(
-        radialaxis=dict(visible=True, range=[0, 1], tickfont=dict(size=10, color="black", family="Arial Black"), gridcolor="lightgray", linecolor="black"),
+        radialaxis=dict(visible=True, range=[0, 1], tickfont=dict(size=10, color="black", family="Arial Black"),
+                        gridcolor="lightgray", linecolor="black"),
         angularaxis=dict(tickfont=dict(size=11, color="black"), linecolor="black"),
         bgcolor="white"
     )
     return fig
+
 
 # --- 6. BUBBLE CHART  ---
 def create_scatter_plot(df):
@@ -244,7 +252,7 @@ def create_scatter_plot(df):
         'Number of Affected Users': 'mean',
         'Attack Type': 'count'
     }).reset_index()
-    
+
     industry_stats.rename(columns={'Attack Type': 'Incident Count'}, inplace=True)
 
     # Create scatter plot
@@ -252,8 +260,8 @@ def create_scatter_plot(df):
         industry_stats,
         x='Financial Loss (in Million $)',
         y='Number of Affected Users',
-        size='Incident Count', # Bubble size
-        color='Target Industry', # Different color for industries
+        size='Incident Count',  # Bubble size
+        color='Target Industry',  # Different color for industries
         hover_name='Target Industry',
         title='Sector Risk Analysis: Financial Impact vs. User Impact',
         labels={
@@ -261,7 +269,7 @@ def create_scatter_plot(df):
             'Number of Affected Users': 'Avg. Affected Users',
             'Incident Count': 'Total Incidents'
         },
-        size_max=60 # Max bubble sizeß
+        size_max=60  # Max bubble sizeß
     )
 
     # Reference lines showing averages (Dashboard average)
@@ -270,20 +278,21 @@ def create_scatter_plot(df):
 
     fig.add_vline(x=avg_loss, line_dash="dot", line_color="gray", annotation_text="Avg Loss")
     fig.add_hline(y=avg_users, line_dash="dot", line_color="gray", annotation_text="Avg Users")
-    
+
     fig.update_traces(textposition='top center')
     fig.update_layout(showlegend=True)
-    
+
     return fig
 
-    
-    ##---------------7.TREEMAP--------------------------
+    # ---------------7.TREEMAP--------------------------
+
+
 def create_treemap(df):
     vuln_attack_industry = df.groupby(['Security Vulnerability Type', 'Attack Type', 'Target Industry']).agg({
         'Number of Affected Users': 'sum',
         'Financial Loss (in Million $)': 'sum'
     }).reset_index()
-    
+
     fig = px.treemap(
         vuln_attack_industry,
         path=['Security Vulnerability Type', 'Attack Type', 'Target Industry'],
@@ -300,14 +309,14 @@ def create_treemap(df):
             'Financial Loss (in Million $)': 'Financial Loss (Million $)'
         }
     )
-    
+
     fig.update_traces(
         textinfo='label+value',
         texttemplate='<b>%{label}</b><br>%{value:,.0f} users',
         textposition='middle center',
         textfont_size=11
     )
-    
+
     fig.update_layout(
         width=1400,
         height=800,
@@ -315,5 +324,113 @@ def create_treemap(df):
         title_font_size=20,
         margin=dict(t=80, l=0, r=0, b=0)
     )
-    
+
     return fig
+
+
+# ---------------8.PARALLEL CATEGORIES--------------------------
+def create_parallel_categories(df, dimension_order, sample_size=300):
+    df_sample = df.sample(n=min(sample_size, len(df)), random_state=42).copy()
+
+
+    df_sample['flow_path'] = df_sample.apply(
+        lambda row: ' ->'.join([str(row[dim]) for dim in dimension_order]),
+        axis=1
+    )
+
+    first_dim = dimension_order[0]
+    unique_values = sorted(df_sample[first_dim].unique())
+    n_colors = len(unique_values)
+
+    value_to_index = {val: idx for idx, val in enumerate(unique_values)}
+    color_indices = df_sample[first_dim].map(value_to_index)
+
+    color_palette = px.colors.qualitative.Set3
+
+    if n_colors > len(color_palette):
+        extended_palette = (color_palette * ((n_colors // len(color_palette)) + 1))[:n_colors]
+    else:
+        extended_palette = color_palette[:n_colors]
+
+    colorscale = [[i / (n_colors - 1) if n_colors > 1 else 0, color]
+                  for i, color in enumerate(extended_palette)]
+
+    dimensions = []
+    for col in dimension_order:
+        unique_vals = sorted(df_sample[col].unique())
+        dimensions.append({
+            'label': col,
+            'values': df_sample[col],
+            'categoryarray': unique_vals,
+            'ticktext': [str(v)[:20] for v in unique_vals]
+        })
+
+    fig = go.Figure(data=[go.Parcats(
+        dimensions=dimensions,
+        line={
+            'color': color_indices,
+            'colorscale': colorscale,
+            'shape': 'hspline',
+            'cmin': 0,
+            'cmax': max(color_indices) if len(color_indices) > 0 else 1
+        },
+        hoveron='category',
+        hoverinfo='count',
+        labelfont={'size': 13, 'color': 'black', 'family': 'Arial'},
+        tickfont={'size': 11, 'color': 'black'},
+        arrangement='freeform',
+        bundlecolors=False
+    )])
+
+    fig.update_layout(
+        title={
+            'text': f'<b>Attack Flow Analysis: {" → ".join(dimension_order)}</b>',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18, 'color': 'black'}
+        },
+        font=dict(size=13, family='Arial, sans-serif', color='black'),
+        height=1000,
+        width=1500,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        margin=dict(t=100, b=50, l=80, r=80),
+        hoverlabel=dict(
+            bgcolor='#2C3E50',
+            font_size=14,
+            font_family='Arial',
+            font_color='white',
+            bordercolor='white',
+            namelength=-1
+        )
+    )
+
+    return fig
+# --- 9. INTERACTIVE VIOLIN PLOT ---
+# --- 9. INTERACTIVE VIOLIN PLOT ---
+def create_violin_plot(df, x_column, y_column, points="all"):
+    import plotly.express as px
+
+    fig = px.violin(
+        df,
+        x=x_column,
+        y=y_column,
+        box=True,              # Box plot overlay
+        points=points,         # "all", "outliers", False
+        hover_data=df.columns, # Extra hover information
+        color=x_column,        # Groups by X
+        title=f"Violin Plot: {y_column} by {x_column}"
+    )
+
+    fig.update_layout(
+        xaxis_title=x_column,
+        yaxis_title=y_column,
+        violingap=0.1,
+        violingroupgap=0.1,
+        violinmode="group",
+        margin=dict(l=40, r=40, t=60, b=40)
+    )
+
+    return fig
+
+
