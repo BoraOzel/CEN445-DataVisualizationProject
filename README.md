@@ -64,7 +64,7 @@ This interactive dashboard provides comprehensive analysis and visualization of 
 
 #### Step 1: Download the Project
 ```bash
-git clone https://github.com/BoraOzel/CEN445-DataVisualizationProject/cybersecurity-dashboard.git
+git clone https://github.com/BoraOzel/CEN445-DataVisualizationProject.git
 cd cybersecurity-dashboard
 ```
 *Or download as ZIP and extract it*
