@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import graphs
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import LabelEncoder
+import numpy as np
 
 # --- PAGE SETTINGS ---
 st.set_page_config(
@@ -27,6 +30,30 @@ df = load_data('Global_Cybersecurity_Threats_2015-2024.csv')
 if df is None:
     st.stop()
 
+#---------------------------------------------
+# Machine Learning Model Training
+@st.cache_resource
+def train_prediction_model(df):
+    feature_cols = ['Country', 'Attack Type', 'Target Industry', 'Attack Source',
+                    'Security Vulnerability Type', 'Defense Mechanism Used']
+    target_col = 'Financial Loss (in Million $)'
+
+    X = df[feature_cols].copy()
+    y = df[target_col]
+
+    # Encoding
+    encoders = {}
+    for col in feature_cols:
+        le = LabelEncoder()
+        X[col] = le.fit_transform(X[col])
+        encoders[col] = le
+
+    # Model Training
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X, y)
+
+    return model, encoders
+#---------------------------------------------
 # --- SIDEBAR (FILTERS) ---
 st.sidebar.header("Dashboard Settings")
 
@@ -299,6 +326,8 @@ else:
     """)
     fig_scatter = graphs.create_scatter_plot(df_filtered)
     st.plotly_chart(fig_scatter, use_container_width=True)
+
+
     # --- 7. TREEMAP ---
     st.divider()
     st.subheader("Vulnerability-Attack-Industry Breakdown")
@@ -309,23 +338,20 @@ else:
     st.divider()
     st.subheader(" Attack Flow Analysis (Sankey Diagram)")
 
-    # First render (dummy) just to ensure function loads — no node list needed
     _, _, _ = graphs.create_sankey_diagram(
         df_filtered,
         dimension_order,
         sankey_sample_size
     )
 
-    # path selection controls
     st.markdown("###  Path Highlighting")
 
-    # get unique values for each dimension
     dimension_values = {
         dim: ['Any'] + sorted(df_filtered[dim].unique().tolist())
         for dim in dimension_order
     }
 
-    # create selectboxes for each dimension
+    # select kutusu oluşturan kısım
     cols = st.columns(len(dimension_order))
     selected_path = []
 
@@ -339,14 +365,12 @@ else:
             )
             selected_path.append(selected if selected != 'Any' else None)
 
-    # fix mismatch between selected_path and dimension_order length
+    # boyut ve yol arasındaki uyuşmazlığı düzeltir
     if len(selected_path) > len(dimension_order):
         selected_path = selected_path[:len(dimension_order)]
 
-    # check if user selected anything
     has_selection = any(v is not None for v in selected_path)
 
-    # Final Sankey render
     fig_sankey, _, stats = graphs.create_sankey_diagram(
         df_filtered,
         dimension_order,
@@ -354,7 +378,7 @@ else:
         highlight_path=selected_path if has_selection else None
     )
 
-    # stats if a specific path is chosen
+    # seçilen pathin özellikleri
     if has_selection:
         col1, col2 = st.columns(2)
         with col1:
@@ -383,7 +407,7 @@ else:
         n=min(violin_sample_size, len(df_filtered)),
         random_state=42
     )
-
+# dataları seçmek için outliers yada tğm dataları göstertebilir
     points_val = False
     if violin_points == "all":
         points_val = "all"
@@ -400,3 +424,85 @@ else:
     )
 
     st.plotly_chart(fig_violin, use_container_width=True)
+
+#-------------10. REGRESSİON------
+
+st.divider()
+st.header("Prediction Module")
+
+model, encoders = train_prediction_model(df)
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    pred_country = st.selectbox("Country", sorted(df['Country'].unique()))
+    pred_industry = st.selectbox("Target Industry", sorted(df['Target Industry'].unique()))
+
+with col2:
+    pred_attack = st.selectbox("Attack Type", sorted(df['Attack Type'].unique()))
+    pred_source = st.selectbox("Attack Source", sorted(df['Attack Source'].unique()))
+
+with col3:
+    pred_vuln = st.selectbox("Vulnerability", sorted(df['Security Vulnerability Type'].unique()))
+    pred_defense = st.selectbox("Defense Mechanism", sorted(df['Defense Mechanism Used'].unique()))
+
+if st.button("Predict"):
+    # input hazırlama
+    input_data = pd.DataFrame({
+        'Country': [pred_country],
+        'Attack Type': [pred_attack],
+        'Target Industry': [pred_industry],
+        'Attack Source': [pred_source],
+        'Security Vulnerability Type': [pred_vuln],
+        'Defense Mechanism Used': [pred_defense]
+    })
+
+    # şifreleme ve çözme
+    encoded_input = input_data.copy()
+    for col in input_data.columns:
+        encoded_input[col] = encoders[col].transform(input_data[col])
+
+
+    predicted_loss = model.predict(encoded_input)[0]
+    st.subheader(f"Predicted Financial Loss: ${predicted_loss:.2f} Million")
+
+    # optimizasyon ayarları(daha iyi bir mekanizma var mı )
+    st.write("Optimization Check...")
+
+    best_defense = pred_defense
+    min_loss = predicted_loss
+
+    all_defenses = df['Defense Mechanism Used'].unique()
+
+    comparison_data = []
+
+    for defense in all_defenses:
+        temp_input = encoded_input.copy()
+        temp_input['Defense Mechanism Used'] = encoders['Defense Mechanism Used'].transform([defense])
+        temp_loss = model.predict(temp_input)[0]
+
+        comparison_data.append({'Defense': defense, 'Predicted Loss': temp_loss})
+
+        if temp_loss < min_loss:
+            min_loss = temp_loss
+            best_defense = defense
+
+    if best_defense != pred_defense:
+        saving = predicted_loss - min_loss
+        st.write(
+            f"Recommendation: Switch to '{best_defense}' to reduce loss to ${min_loss:.2f} M. (Saving: ${saving:.2f} M)")
+    else:
+        st.write(f"Current defense '{pred_defense}' is optimal.")
+
+    # diğer defans mekanizmalarına göre karşılaştırma (çıkarılabiliriz)
+    df_comp = pd.DataFrame(comparison_data).sort_values(by='Predicted Loss')
+    fig_opt = px.bar(
+        df_comp,
+        x='Predicted Loss',
+        y='Defense',
+        orientation='h',
+        title="Impact of Defense Mechanisms",
+        color='Predicted Loss',
+        text_auto='.2f'
+    )
+    st.plotly_chart(fig_opt, use_container_width=True)
