@@ -89,3 +89,27 @@ pip install streamlit pandas plotly scikit-learn numpy
 streamlit run app.py
 ```
 
+## Team Contributions
+
+### **Gizem Özbozkurt** - 2021556051
+- **Choropleth Map:** Global threat distribution visualization with country-level metrics
+- **Heatmap:** Attack Type vs Target Industry intensity matrix
+- **Sunburst Chart:** Hierarchical breakdown of top 10 countries
+- **Documentation:** Project documentation
+
+### **Bora Özel** - 2021556054
+- **Time Series Line Chart:** Annual attack trends over the decade
+- **Radar Chart:** Multi-dimensional defense mechanism performance evaluation
+- **Bubble Chart:** Industry risk analysis with financial loss vs affected users
+- **Dashboard Layout:** Overall Streamlit UI design and page structure
+
+### **Erdem Kandilci** - 2021556041
+- **Treemap:** Vulnerability-Attack-Industry hierarchical visualization
+- **Sankey Diagram:** Attack flow analysis with customizable dimensions and path highlighting
+- **Violin Plot:** Interactive distribution analysis across categories
+- **Prediction Module:** Random Forest-based financial loss forecasting and defense optimization
+---
+### Shared Responsibilities
+- **Data Preprocessing:** All team members
+- **Filter Implementation:** Collaborative effort
+- **Report Writing:** All team members
