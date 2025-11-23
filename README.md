@@ -39,13 +39,6 @@ This interactive dashboard provides comprehensive analysis and visualization of 
 - **Defense Optimization:** Automatically recommend the most effective defense mechanism
 - **Sample Size Control:** Adjust data sampling for performance optimization
 
-###  Use Cases
-
-- **Security Analysts:** Identify emerging threat patterns and vulnerable sectors
-- **Policy Makers:** Understand global cyber threat landscapes for strategic planning
-- **Organizations:** Evaluate industry-specific risks and optimize defense investments
-- **Researchers:** Explore correlations between attack characteristics and outcomes
-- **Educators:** Demonstrate data visualization and machine learning techniques in cybersecurity
 
 ###  Dataset Overview
 
@@ -82,7 +75,6 @@ pip install streamlit pandas plotly scikit-learn numpy
 - **scikit-learn** - Powers the machine learning prediction module (Random Forest)
 - **numpy** - Performs numerical calculations and data processing
 
----
 ---
 #### Step 3: Run the Dashboard
 ```bash
