@@ -59,3 +59,25 @@ This interactive dashboard provides comprehensive analysis and visualization of 
   - Defense information (mechanisms used)
   - Target details (industry, country)
   - Temporal data (year)
+ 
+## How to Run This Project
+
+#### Step 1: Download the Project
+```bash
+git clone https://github.com/YOUR_USERNAME/cybersecurity-dashboard.git
+cd cybersecurity-dashboard
+```
+*Or download as ZIP and extract it*
+
+---
+#### Step 2: Install Required Libraries
+Open terminal/command prompt in the project folder and run:
+```bash
+pip install streamlit pandas plotly scikit-learn numpy
+```
+---
+#### Step 3: Run the Dashboard
+```bash
+streamlit run app.py
+```
+
