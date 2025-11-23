@@ -328,109 +328,153 @@ def create_treemap(df):
     return fig
 
 
-# ---------------8.PARALLEL CATEGORIES--------------------------
-def create_parallel_categories(df, dimension_order, sample_size=300):
+
+# ---------------8.SANKEY DIAGRAM--------------------------
+def create_sankey_diagram(df, dimension_order, sample_size=500, highlight_path=None):
+    """ Creates a Sankey diagram showing flow between selected dimensions
+    highlight_path: List of values for each dimension to highlight specific path
+    Example: ['DDoS', 'Retail', 'Antivirus'] or ['DDoS', None, 'Antivirus'] """
+
     df_sample = df.sample(n=min(sample_size, len(df)), random_state=42).copy()
 
+    df_flow = df_sample.copy()
+    total_incidents = len(df_flow)
+    total_affected_users = df_flow['Number of Affected Users'].sum()
+    stats = {'total_incidents': total_incidents, 'total_affected_users': total_affected_users}
+    is_highlighted_flow = False
 
-    df_sample['flow_path'] = df_sample.apply(
-        lambda row: ' ->'.join([str(row[dim]) for dim in dimension_order]),
-        axis=1
-    )
+    if highlight_path and len(highlight_path) == len(dimension_order) and any(
+            val is not None for val in highlight_path):
+        df_highlight = df_sample.copy()
 
-    first_dim = dimension_order[0]
-    unique_values = sorted(df_sample[first_dim].unique())
-    n_colors = len(unique_values)
+        for dim, val in zip(dimension_order, highlight_path):
+            if val is not None:
+                df_highlight = df_highlight[df_highlight[dim].isin([val])]
 
-    value_to_index = {val: idx for idx, val in enumerate(unique_values)}
-    color_indices = df_sample[first_dim].map(value_to_index)
+        if not df_highlight.empty:
+            df_flow = df_highlight
+            total_incidents = len(df_flow)
+            total_affected_users = df_flow['Number of Affected Users'].sum()
+            stats = {'total_incidents': total_incidents, 'total_affected_users': total_affected_users}
+            is_highlighted_flow = True
+        else:
+            return go.Figure(), [], {'total_incidents': 0, 'total_affected_users': 0}
+
+    node_set = set()
+    for _, row in df_sample.iterrows():
+        for dim in dimension_order:
+            node_set.add(f"{dim}::{row[dim]}")
+
+    node_list = sorted(list(node_set))
+    label_list = [n.split("::")[1] for n in node_list]
+    node_to_idx = {node_list[i]: i for i in range(len(node_list))}
+
+    flow_counts = {}
+
+    for _, row in df_flow.iterrows():
+        chain = [f"{dim}::{row[dim]}" for dim in dimension_order]
+        for i in range(len(chain) - 1):
+            pair = (chain[i], chain[i + 1])
+            flow_counts[pair] = flow_counts.get(pair, 0) + 1
+
+    sources = []
+    targets = []
+    values = []
+    colors = []
 
     color_palette = px.colors.qualitative.Set3
 
-    if n_colors > len(color_palette):
-        extended_palette = (color_palette * ((n_colors // len(color_palette)) + 1))[:n_colors]
-    else:
-        extended_palette = color_palette[:n_colors]
+    for (src, tgt), count in flow_counts.items():
+        sources.append(node_to_idx[src])
+        targets.append(node_to_idx[tgt])
+        values.append(count)
 
-    colorscale = [[i / (n_colors - 1) if n_colors > 1 else 0, color]
-                  for i, color in enumerate(extended_palette)]
+        dim = src.split("::")[0]
+        base = color_palette[hash(dim) % len(color_palette)]
 
-    dimensions = []
-    for col in dimension_order:
-        unique_vals = sorted(df_sample[col].unique())
-        dimensions.append({
-            'label': col,
-            'values': df_sample[col],
-            'categoryarray': unique_vals,
-            'ticktext': [str(v)[:20] for v in unique_vals]
-        })
+        if is_highlighted_flow:
+            colors.append(base.replace("rgb", "rgba").replace(")", ",0.9)"))
+        else:
+            colors.append(base.replace("rgb", "rgba").replace(")", ",0.5)"))
 
-    fig = go.Figure(data=[go.Parcats(
-        dimensions=dimensions,
-        line={
-            'color': color_indices,
-            'colorscale': colorscale,
-            'shape': 'hspline',
-            'cmin': 0,
-            'cmax': max(color_indices) if len(color_indices) > 0 else 1
-        },
-        hoveron='category',
-        hoverinfo='count',
-        labelfont={'size': 13, 'color': 'black', 'family': 'Arial'},
-        tickfont={'size': 11, 'color': 'black'},
-        arrangement='freeform',
-        bundlecolors=False
+    node_colors = []
+    for node in node_list:
+        dim = node.split("::")[0]
+        node_colors.append(color_palette[hash(dim) % len(color_palette)])
+
+    fig = go.Figure(data=[go.Sankey(
+        textfont=dict(color="black", size=12),
+        node=dict(
+            label=label_list,
+            color=node_colors,
+            pad=18,
+            thickness=24,
+            line=dict(color="black", width=1.0),
+            hovertemplate='<b>%{label}</b><br>Incidents: %{value}<extra></extra>',
+            hoverlabel=dict(
+                bgcolor="red",
+                bordercolor="white",
+                font=dict(color="white", size=14, family="Arial Black")
+            )
+        ),
+        link=dict(
+            source=sources,
+            target=targets,
+            value=values,
+            color=colors,
+            hovertemplate='<b>%{source.label}</b> → <b>%{target.label}</b><br>Incidents: %{value}<extra></extra>',
+            hoverlabel=dict(
+                bgcolor="red",
+                bordercolor="white",
+                font=dict(color="white", size=14, family="Arial Black")
+            )
+        ),
+        arrangement="snap"
     )])
 
     fig.update_layout(
-        title={
-            'text': f'<b>Attack Flow Analysis: {" → ".join(dimension_order)}</b>',
-            'x': 0.5,
-            'xanchor': 'center',
-            'font': {'size': 18, 'color': 'black'}
-        },
-        font=dict(size=13, family='Arial, sans-serif', color='black'),
-        height=1000,
-        width=1500,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        margin=dict(t=100, b=50, l=80, r=80),
-        hoverlabel=dict(
-            bgcolor='#2C3E50',
-            font_size=14,
-            font_family='Arial',
-            font_color='white',
-            bordercolor='white',
-            namelength=-1
-        )
+        title=f"Attack Flow Analysis: {' -> '.join(dimension_order)}",
+        font=dict(
+            size=13,
+            color="black"
+        ),
+        height=800,
+        width=1400,
+        margin=dict(t=70, b=40, l=40, r=40)
     )
 
-    return fig
+    return fig, label_list, stats
+
+
 # --- 9. INTERACTIVE VIOLIN PLOT ---
-# --- 9. INTERACTIVE VIOLIN PLOT ---
-def create_violin_plot(df, x_column, y_column, points="all"):
-    import plotly.express as px
+def create_violin_plot(df, x_column, y_column, color_column=None, points="all", log_scale=False):
+    if color_column == 'None':
+        color_column = None
+
+    hover_cols = [x_column, y_column, 'Year', 'Attack Type', 'Target Industry']
+
+    if color_column:
+        hover_cols.append(color_column)
 
     fig = px.violin(
         df,
         x=x_column,
         y=y_column,
-        box=True,              # Box plot overlay
-        points=points,         # "all", "outliers", False
-        hover_data=df.columns, # Extra hover information
-        color=x_column,        # Groups by X
-        title=f"Violin Plot: {y_column} by {x_column}"
+        color=color_column if color_column else x_column,
+        box=True,
+        points=points,
+        hover_data=hover_cols,
+        title=f"Distribution of {y_column} by {x_column}"
     )
+
 
     fig.update_layout(
         xaxis_title=x_column,
         yaxis_title=y_column,
-        violingap=0.1,
-        violingroupgap=0.1,
-        violinmode="group",
-        margin=dict(l=40, r=40, t=60, b=40)
+        violingap=0.2,
+        violinmode='group',
+        margin=dict(l=40, r=40, t=60, b=40),
+        legend_title=color_column if color_column else x_column
     )
 
     return fig
-
-
