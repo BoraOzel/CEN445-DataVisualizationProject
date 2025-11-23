@@ -50,7 +50,7 @@ This interactive dashboard provides comprehensive analysis and visualization of 
 ###  Dataset Overview
 
 - **Source:** [Global Cybersecurity Threats Dataset (2015-2024)](https://www.kaggle.com/datasets/atharvasoundankar/global-cybersecurity-threats-2015-2024/data)
-- **Records:** [Country	,Year	,Attack Type	,Target Industry	,Financial Loss (in Million $)	,Number of Affected Users	,Attack Source	,Security Vulnerability Type	,Defense Mechanism Used	,Incident Resolution Time (in Hours)]
+- **Records:** 3000
 - **Time Span:** 10 years (2015-2024)
 - **Geographical Coverage:** Global (multiple countries)
 - **Key Attributes:**
