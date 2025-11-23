@@ -75,6 +75,14 @@ Open terminal/command prompt in the project folder and run:
 ```bash
 pip install streamlit pandas plotly scikit-learn numpy
 ```
+**What each library does:**
+- **streamlit** - Creates the interactive web dashboard interface
+- **pandas** - Handles data loading, filtering, and manipulation
+- **plotly** - Generates all interactive charts and visualizations
+- **scikit-learn** - Powers the machine learning prediction module (Random Forest)
+- **numpy** - Performs numerical calculations and data processing
+
+---
 ---
 #### Step 3: Run the Dashboard
 ```bash
