@@ -364,7 +364,7 @@ else:
             )
         with col2:
             st.metric(
-                label="👥 Total Affected Users",
+                label="Total Affected Users",
                 value=f"{stats['total_affected_users']:,}"
             )
 
