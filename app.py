@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 import graphs
 
 # --- PAGE SETTINGS ---
@@ -110,9 +111,8 @@ selected_year_range = st.sidebar.slider(
 
 st.sidebar.divider()
 
-
-# Parallel Categories Settings
-st.sidebar.subheader("Parallel Categories Settings")
+# Sankey Diagram Settings
+st.sidebar.subheader("Sankey Diagram Settings")
 
 available_options = [
     'Country',
@@ -133,7 +133,7 @@ dimension_2 = st.sidebar.selectbox("2nd Dimension:", remaining_1, index=2 if 'Ta
 remaining_2 = [x for x in remaining_1 if x != dimension_2]
 
 dimension_3 = st.sidebar.selectbox("3rd Dimension:", remaining_2,
-                                   index=4 if 'Defense Mechanism Used' in remaining_2 else 0)
+                                   index=4 if 'Security Vulnerability Type' in remaining_2 else 0)
 remaining_3 = [x for x in remaining_2 if x != dimension_3]
 
 dimension_4 = st.sidebar.selectbox("4th Dimension (optional):", ['None'] + remaining_3, index=0)
@@ -142,14 +142,14 @@ dimension_order = [dimension_1, dimension_2, dimension_3]
 if dimension_4 != 'None':
     dimension_order.append(dimension_4)
 
-parallel_sample_size = st.sidebar.slider(
+sankey_sample_size = st.sidebar.slider(
     "Sample Size:",
     min_value=100,
     max_value=3000,
     value=500,
     step=100
 )
-#----Violin Plot Settings---
+# ----Violin Plot Settings---
 st.sidebar.divider()
 st.sidebar.subheader("Violin Plot Settings")
 
@@ -165,7 +165,8 @@ violin_x_options = [
 
 violin_x = st.sidebar.selectbox(
     "X-axis (Category):",
-    violin_x_options
+    violin_x_options,
+    index=1
 )
 
 violin_y_options = [
@@ -179,20 +180,26 @@ violin_y = st.sidebar.selectbox(
     violin_y_options
 )
 
+available_colors = ['None'] + [col for col in violin_x_options if col != violin_x]
+violin_color = st.sidebar.selectbox(
+    "Split by (Color - Optional):",
+    available_colors,
+    index=0
+)
+
 violin_points = st.sidebar.selectbox(
     "Show Points:",
-    ["all", "outliers", "none"]
+    ["all", "outliers", "none"],
+    index=1
 )
+
 violin_sample_size = st.sidebar.slider(
     "Violin Sample Size:",
     min_value=100,
     max_value=3000,
-    value=800,
+    value=1000,
     step=100
 )
-
-
-
 
 # --- APPLY FILTERS ---
 df_filtered = df.copy()
@@ -225,13 +232,13 @@ if selected_industry:
 df_filtered = df_filtered[
     (df_filtered['Incident Resolution Time (in Hours)'] >= selected_res_range[0]) &
     (df_filtered['Incident Resolution Time (in Hours)'] <= selected_res_range[1])
-]
+    ]
 
 # Year
 df_filtered = df_filtered[
     (df_filtered['Year'] >= selected_year_range[0]) &
     (df_filtered['Year'] <= selected_year_range[1])
-]
+    ]
 
 # --- HOME PAGE ---
 st.title("🛡️ Global Cyber Security Threats Analyze")
@@ -298,32 +305,98 @@ else:
     fig_treemap = graphs.create_treemap(df_filtered)
     st.plotly_chart(fig_treemap, use_container_width=True)
 
-    # --- 8. PARALLEL CATEGORIES ---
+    # --- 8. SANKEY DIAGRAM ---
     st.divider()
-    st.subheader("Attack Flow Analysis (Parallel Categories)")
-    st.markdown(f"**Flow:** {' → '.join(dimension_order)}")
-    fig_parallel = graphs.create_parallel_categories(df_filtered, dimension_order, parallel_sample_size)
-    st.plotly_chart(fig_parallel, use_container_width=True)
+    st.subheader(" Attack Flow Analysis (Sankey Diagram)")
+
+    # First render (dummy) just to ensure function loads — no node list needed
+    _, _, _ = graphs.create_sankey_diagram(
+        df_filtered,
+        dimension_order,
+        sankey_sample_size
+    )
+
+    # path selection controls
+    st.markdown("###  Path Highlighting")
+
+    # get unique values for each dimension
+    dimension_values = {
+        dim: ['Any'] + sorted(df_filtered[dim].unique().tolist())
+        for dim in dimension_order
+    }
+
+    # create selectboxes for each dimension
+    cols = st.columns(len(dimension_order))
+    selected_path = []
+
+    for idx, dim in enumerate(dimension_order):
+        with cols[idx]:
+            selected = st.selectbox(
+                f"{dim}",
+                options=dimension_values[dim],
+                index=0,
+                key=f"path_dim_{idx}"
+            )
+            selected_path.append(selected if selected != 'Any' else None)
+
+    # fix mismatch between selected_path and dimension_order length
+    if len(selected_path) > len(dimension_order):
+        selected_path = selected_path[:len(dimension_order)]
+
+    # check if user selected anything
+    has_selection = any(v is not None for v in selected_path)
+
+    # Final Sankey render
+    fig_sankey, _, stats = graphs.create_sankey_diagram(
+        df_filtered,
+        dimension_order,
+        sankey_sample_size,
+        highlight_path=selected_path if has_selection else None
+    )
+
+    # stats if a specific path is chosen
+    if has_selection:
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric(
+                label="📊 Total Incidents in Path",
+                value=f"{stats['total_incidents']:,}"
+            )
+        with col2:
+            st.metric(
+                label="👥 Total Affected Users",
+                value=f"{stats['total_affected_users']:,}"
+            )
+
+    st.plotly_chart(fig_sankey, use_container_width=True)
 
     # --- 9. VIOLIN PLOT ---
     st.divider()
-    st.subheader(" Interactive Violin Plot")
+    st.subheader("Interactive Violin Plot")
 
     st.markdown("""
-    A violin plot shows the distribution of data across different categories.
-    Use X (category) and Y (numeric) selections to explore distributions interactively.
-    """)
+        A violin plot shows the distribution of data across different categories.
+        Use X (category) and Y (numeric) selections to explore distributions interactively.
+        """)
+
     df_violin = df_filtered.sample(
         n=min(violin_sample_size, len(df_filtered)),
         random_state=42
     )
 
+    points_val = False
+    if violin_points == "all":
+        points_val = "all"
+    elif violin_points == "outliers":
+        points_val = "outliers"
+
     fig_violin = graphs.create_violin_plot(
         df_violin,
         x_column=violin_x,
         y_column=violin_y,
-        points="all" if violin_points == "all"
-        else ("outliers" if violin_points == "outliers" else False)
+        color_column=violin_color,
+        points=points_val,
+
     )
 
     st.plotly_chart(fig_violin, use_container_width=True)
