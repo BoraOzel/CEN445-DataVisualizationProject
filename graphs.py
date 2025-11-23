@@ -338,11 +338,12 @@ def create_sankey_diagram(df, dimension_order, sample_size=500, highlight_path=N
     df_sample = df.sample(n=min(sample_size, len(df)), random_state=42).copy()
 
     df_flow = df_sample.copy()
+    #istatistik hesaplama kısmı
     total_incidents = len(df_flow)
     total_affected_users = df_flow['Number of Affected Users'].sum()
     stats = {'total_incidents': total_incidents, 'total_affected_users': total_affected_users}
     is_highlighted_flow = False
-
+# eğer kullanıcı bir path seçtiğiyse ona göre filtreleme
     if highlight_path and len(highlight_path) == len(dimension_order) and any(
             val is not None for val in highlight_path):
         df_highlight = df_sample.copy()
@@ -359,7 +360,7 @@ def create_sankey_diagram(df, dimension_order, sample_size=500, highlight_path=N
             is_highlighted_flow = True
         else:
             return go.Figure(), [], {'total_incidents': 0, 'total_affected_users': 0}
-
+#düğümlerin oluşturulduğu kısım
     node_set = set()
     for _, row in df_sample.iterrows():
         for dim in dimension_order:
@@ -370,7 +371,7 @@ def create_sankey_diagram(df, dimension_order, sample_size=500, highlight_path=N
     node_to_idx = {node_list[i]: i for i in range(len(node_list))}
 
     flow_counts = {}
-
+#zincir burada oluşturuluyor
     for _, row in df_flow.iterrows():
         chain = [f"{dim}::{row[dim]}" for dim in dimension_order]
         for i in range(len(chain) - 1):
@@ -391,17 +392,17 @@ def create_sankey_diagram(df, dimension_order, sample_size=500, highlight_path=N
 
         dim = src.split("::")[0]
         base = color_palette[hash(dim) % len(color_palette)]
-
+# eğer highlight varsa seçili olan net
         if is_highlighted_flow:
             colors.append(base.replace("rgb", "rgba").replace(")", ",0.9)"))
         else:
             colors.append(base.replace("rgb", "rgba").replace(")", ",0.5)"))
-
+#renk ayarları
     node_colors = []
     for node in node_list:
         dim = node.split("::")[0]
         node_colors.append(color_palette[hash(dim) % len(color_palette)])
-
+#grafik çizdirme kısmı
     fig = go.Figure(data=[go.Sankey(
         textfont=dict(color="black", size=12),
         node=dict(
@@ -431,7 +432,7 @@ def create_sankey_diagram(df, dimension_order, sample_size=500, highlight_path=N
         ),
         arrangement="snap"
     )])
-
+#grafiğin ayarları
     fig.update_layout(
         title=f"Attack Flow Analysis: {' -> '.join(dimension_order)}",
         font=dict(
